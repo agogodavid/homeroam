@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clock Face Workbook Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            .page-break {
+                page-break-after: always;
+            }
+            .clock-grid {
+                gap: 1rem !important;
+            }
+        }
+        
+        .clock-face {
+            aspect-ratio: 1 / 1;
+        }
+
+        /* Prevent background colors from being stripped in print */
+        * {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4 md:p-8 font-sans">
+
+    <div class="max-w-5xl mx-auto">
+        <!-- Controls Panel -->
+        <header class="no-print bg-white shadow-sm border border-gray-200 rounded-xl p-6 mb-8">
+            <h1 class="text-2xl font-bold text-gray-800 mb-4">🕒 Clock Workbook Generator</h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <!-- Style Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Activity Mode</label>
+                    <select id="styleSelect" onchange="toggleTimeOption()" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
+                        <option value="read">Read the Clock (Hands Included)</option>
+                        <option value="hours">Draw Hands (Hours Labeled)</option>
+                        <option value="minutes">Draw Hands (Minutes Labeled)</option>
+                        <option value="blank">Draw Hands (Completely Blank)</option>
+                    </select>
+                </div>
+
+                <!-- Count Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Clocks Per Page</label>
+                    <select id="countSelect" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 p-2 border">
+                        <option value="9">9 Clocks (3x3)</option>
+                        <option value="12" selected>12 Clocks (3x4)</option>
+                    </select>
+                </div>
+
+                <!-- Target Time Toggle -->
+                <div class="flex items-end" id="timeToggleContainer">
+                    <label class="flex items-center space-x-3 cursor-pointer p-2 bg-gray-50 rounded-lg w-full border border-gray-200">
+                        <input type="checkbox" id="timeToggle" checked class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <span class="text-sm font-medium text-gray-700">Include "Draw Time"</span>
+                    </label>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-end space-x-2">
+                    <button onclick="generateClocks()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                        Generate New
+                    </button>
+                    <button onclick="window.print()" class="bg-gray-800 hover:bg-black text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Print
+                    </button>
+                </div>
+            </div>
+            
+            <p class="text-sm text-gray-500 italic">Tip: Use "Read the Clock" for practicing reading time, and the "Draw Hands" modes for practicing where hands go.</p>
+        </header>
+
+        <!-- Printable Area -->
+        <div id="workbookPage" class="bg-white p-8 shadow-lg min-h-[1056px] flex flex-col items-center">
+            <h2 id="workbookTitle" class="text-3xl font-bold text-center text-gray-800 mb-8 border-b-2 border-gray-100 pb-4 w-full">Time Telling Practice</h2>
+            
+            <div id="clockGrid" class="grid grid-cols-3 gap-12 w-full">
+                <!-- Clocks will be injected here -->
+            </div>
+
+            <footer class="mt-auto pt-12 text-gray-400 text-sm italic w-full flex justify-between">
+                <span>Name: __________________________</span>
+                <span>Date: ________________</span>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        function toggleTimeOption() {
+            const style = document.getElementById('styleSelect').value;
+            const container = document.getElementById('timeToggleContainer');
+            // Hide the "Draw Time" toggle if we are in "Read" mode (since times are already on the clock)
+            if (style === 'read') {
+                container.style.opacity = '0.5';
+                container.style.pointerEvents = 'none';
+            } else {
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+            }
+        }
+
+        function generateRandomTimeData() {
+            const h = Math.floor(Math.random() * 12) + 1;
+            const m = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55][Math.floor(Math.random() * 12)];
+            return { h, m, label: `${h}:${m === 0 ? '00' : m}` };
+        }
+
+        function createClockSVG(style, timeData = null) {
+            const size = 200;
+            const center = size / 2;
+            const radius = size * 0.45;
+            
+            let svg = `<svg viewBox="0 0 ${size} ${size}" class="w-full h-auto text-gray-900">
+                <!-- Outer Circle -->
+                <circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="currentColor" stroke-width="2.5" />
+                <!-- Center point -->
+                <circle cx="${center}" cy="${center}" r="3.5" fill="currentColor" />
+            `;
+
+            // Draw ticks
+            for (let i = 0; i < 60; i++) {
+                const angle = (i * 6) * Math.PI / 180;
+                const isHour = i % 5 === 0;
+                const length = isHour ? 8 : 4;
+                const x1 = center + (radius - length) * Math.sin(angle);
+                const y1 = center - (radius - length) * Math.cos(angle);
+                const x2 = center + radius * Math.sin(angle);
+                const y2 = center - radius * Math.cos(angle);
+                
+                svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="${isHour ? 2 : 1}" />`;
+            }
+
+            // Draw numbers (Always draw 1-12 for 'read' and 'hours' mode)
+            if (style === 'hours' || style === 'read' || style === 'minutes') {
+                for (let i = 1; i <= 12; i++) {
+                    const angle = (i * 30) * Math.PI / 180;
+                    const dist = radius * 0.8;
+                    const x = center + dist * Math.sin(angle);
+                    const y = center - dist * Math.cos(angle);
+                    
+                    let label = i;
+                    if (style === 'minutes') {
+                        label = i * 5 === 60 ? '00' : i * 5;
+                    }
+
+                    svg += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-weight="600" font-size="${style === 'minutes' ? '12' : '16'}">${label}</text>`;
+                }
+            }
+
+            // Draw hands if in 'read' mode
+            if (style === 'read' && timeData) {
+                // Minute hand
+                const mAngle = (timeData.m * 6) * Math.PI / 180;
+                const mx = center + (radius * 0.85) * Math.sin(mAngle);
+                const my = center - (radius * 0.85) * Math.cos(mAngle);
+                svg += `<line x1="${center}" y1="${center}" x2="${mx}" y2="${my}" stroke="black" stroke-width="3" stroke-linecap="round" />`;
+
+                // Hour hand (adjusted for minutes)
+                const hAngle = ((timeData.h * 30) + (timeData.m * 0.5)) * Math.PI / 180;
+                const hx = center + (radius * 0.55) * Math.sin(hAngle);
+                const hy = center - (radius * 0.55) * Math.cos(hAngle);
+                svg += `<line x1="${center}" y1="${center}" x2="${hx}" y2="${hy}" stroke="black" stroke-width="5" stroke-linecap="round" />`;
+            }
+
+            svg += `</svg>`;
+            return svg;
+        }
+
+        function generateClocks() {
+            const style = document.getElementById('styleSelect').value;
+            const count = parseInt(document.getElementById('countSelect').value);
+            const showTimes = document.getElementById('timeToggle').checked;
+            const grid = document.getElementById('clockGrid');
+            
+            grid.innerHTML = '';
+
+            for (let i = 0; i < count; i++) {
+                const clockContainer = document.createElement('div');
+                clockContainer.className = "flex flex-col items-center space-y-4";
+                
+                const timeData = generateRandomTimeData();
+                
+                const svgWrapper = document.createElement('div');
+                svgWrapper.className = "w-full max-w-[180px]";
+                svgWrapper.innerHTML = createClockSVG(style, timeData);
+                
+                clockContainer.appendChild(svgWrapper);
+
+                const labelContainer = document.createElement('div');
+                labelContainer.className = "text-xl font-bold flex flex-col items-center w-full";
+
+                if (style === 'read') {
+                    // Blank space to write the time
+                    labelContainer.innerHTML = `<span class="text-sm font-normal text-gray-500 mb-1">Time:</span> <span class="border-b-2 border-gray-300 w-32 h-8 block"></span>`;
+                } else if (showTimes) {
+                    // Target time provided
+                    labelContainer.className += " border-t border-gray-200 pt-2 px-8 mt-2";
+                    labelContainer.textContent = timeData.label;
+                } else {
+                    // Blank line for manual instruction
+                    labelContainer.innerHTML = `<span class="border-b-2 border-gray-300 w-32 h-8 block mt-2"></span>`;
+                }
+                
+                clockContainer.appendChild(labelContainer);
+                grid.appendChild(clockContainer);
+            }
+
+            // Update title
+            const titles = {
+                'read': 'What Time is it? (Reading Clocks)',
+                'blank': 'Drawing Clock Hands: Blank Faces',
+                'hours': 'Drawing Clock Hands: Hour Labeled',
+                'minutes': 'Drawing Clock Hands: Minutes Labeled'
+            };
+            document.getElementById('workbookTitle').textContent = titles[style];
+        }
+
+        // Initialize
+        window.onload = () => {
+            toggleTimeOption();
+            generateClocks();
+        };
+    </script>
+</body>
+</html>
