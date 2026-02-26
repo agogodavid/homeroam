@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Great Number Comparison Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Library for Image Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* Modern UI Tweaks */
+        body { -webkit-font-smoothing: antialiased; }
+        
+        .dice-box {
+            width: 45px;
+            height: 45px;
+            border: 2px dashed #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background: #f8fafc;
+        }
+
+        /* Print Specifics */
+        @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+            .no-print { display: none !important; }
+            body { 
+                background: white !important; 
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .worksheet-container { 
+                border: none !important; 
+                box-shadow: none !important; 
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 1cm 1.5cm !important;
+                page-break-after: always;
+                display: block !important;
+            }
+            /* Force colors and borders in PDF */
+            .bg-blue-500 { background-color: #3b82f6 !important; }
+            .bg-blue-50 { background-color: #eff6ff !important; }
+            .text-blue-600 { color: #2563eb !important; }
+            .border-blue-400 { border-color: #60a5fa !important; }
+        }
+
+        .export-loading {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 md:p-8 font-sans">
+
+    <div id="loader" class="export-loading">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p class="font-bold text-slate-700">Generating Images...</p>
+    </div>
+
+    <!-- Configuration Panel -->
+    <div class="max-w-4xl mx-auto no-print mb-8 bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="bg-blue-600 p-2 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" class="text-white w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-800">Homeroam Activity Builder</h1>
+        </div>
+        <p class="text-slate-500 mb-6 font-medium">Generate custom number comparison worksheets for accelerated learning.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Game Phase</label>
+                <select id="levelSelect" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none bg-slate-50 font-semibold text-slate-700 transition-all">
+                    <option value="units">Phase 1: Units (0-9)</option>
+                    <option value="tens">Phase 2: Tens (10-90)</option>
+                    <option value="both">Phase 3: Tens + Units (10-99)</option>
+                    <option value="hundreds">Phase 4: Hundreds (100-999)</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Quantity</label>
+                <select id="pageCount" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 outline-none bg-slate-50 font-semibold text-slate-700 transition-all">
+                    <option value="1">1 Page</option>
+                    <option value="3">3 Pages</option>
+                    <option value="5">5 Pages</option>
+                </select>
+            </div>
+            
+            <div class="flex gap-2">
+                <button onclick="generatePages()" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white px-3 py-3 rounded-xl font-bold transition-all transform active:scale-95 shadow-md">
+                    Refresh
+                </button>
+                <button onclick="exportAsImages()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-3 rounded-xl font-bold transition-all transform active:scale-95 shadow-md flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2001/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    Image
+                </button>
+                <button onclick="window.print()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-3 rounded-xl font-bold transition-all flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2001/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sheetsContainer">
+        <!-- Worksheets Injected Here -->
+    </div>
+
+    <script>
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        async function exportAsImages() {
+            const loader = document.getElementById('loader');
+            const sheets = document.querySelectorAll('.worksheet-container');
+            const level = document.getElementById('levelSelect').value;
+            
+            loader.style.display = 'flex';
+
+            try {
+                for (let i = 0; i < sheets.length; i++) {
+                    const canvas = await html2canvas(sheets[i], {
+                        scale: 2, // High quality
+                        useCORS: true,
+                        logging: false,
+                        backgroundColor: "#ffffff"
+                    });
+                    
+                    const image = canvas.toDataURL("image/png");
+                    const link = document.createElement('a');
+                    link.download = `homeroam-math-${level}-page-${i+1}.png`;
+                    link.href = image;
+                    link.click();
+                }
+            } catch (err) {
+                console.error("Export failed", err);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        function generateData(level) {
+            const data = [];
+            for (let i = 0; i < 10; i++) {
+                let refNum;
+                if (level === 'units') refNum = getRandomInt(1, 9);
+                else if (level === 'tens') refNum = getRandomInt(1, 9) * 10;
+                else if (level === 'both') refNum = getRandomInt(11, 99);
+                else refNum = getRandomInt(101, 999);
+                data.push(refNum);
+            }
+            return data;
+        }
+
+        function generatePages() {
+            const container = document.getElementById('sheetsContainer');
+            const level = document.getElementById('levelSelect').value;
+            const count = parseInt(document.getElementById('pageCount').value);
+            
+            let allPagesHtml = "";
+            
+            for (let p = 0; p < count; p++) {
+                const data = generateData(level);
+                let phaseTitle = "";
+                let instruction = "";
+                let diceDisplay = "";
+                
+                const equalRule = " <strong>If the numbers are equal, roll it again!</strong>";
+                
+                if (level === 'units') {
+                    phaseTitle = "Phase 1: Unit Recognition";
+                    instruction = "Roll the Unit die. If your roll is BIGGER than the goal, write it on the right. If SMALLER, write it on the left." + equalRule;
+                    diceDisplay = `<div class="dice-box"><span class="text-[10px] text-slate-400 font-bold uppercase">U</span></div>`;
+                } else if (level === 'tens') {
+                    phaseTitle = "Phase 2: Tens Comparison";
+                    instruction = "Roll the Tens die. Compare the value to the goal. Write your number on the correct side." + equalRule;
+                    diceDisplay = `<div class="dice-box"><span class="text-[10px] text-slate-400 font-bold uppercase">T</span></div>`;
+                } else if (level === 'both') {
+                    phaseTitle = "Phase 3: Double Digit Duel";
+                    instruction = "Roll Tens and Units. Combine them. Compare your new number to the goal number shown." + equalRule;
+                    diceDisplay = `<div class="flex gap-1"><div class="dice-box">T</div><div class="dice-box">U</div></div>`;
+                } else {
+                    phaseTitle = "Phase 4: Hundreds Challenge";
+                    instruction = "Roll Hundreds, Tens, and Units. Build your 3-digit number and compare it to the goal." + equalRule;
+                    diceDisplay = `<div class="flex gap-1"><div class="dice-box">H</div><div class="dice-box">T</div><div class="dice-box">U</div></div>`;
+                }
+
+                allPagesHtml += `
+                    <div class="worksheet-container bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8 max-w-4xl mx-auto relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-2 bg-blue-500 no-print"></div>
+                        <div class="flex justify-between items-center mb-8 border-b border-slate-100 pb-6">
+                            <div>
+                                <h2 class="text-3xl font-black text-slate-900 tracking-tight">${phaseTitle}</h2>
+                                <p class="text-slate-400 mt-1 font-bold uppercase text-[10px] tracking-widest">Student: ____________________ &nbsp;&nbsp; Date: ________________</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-black border border-blue-100">PAGE ${p+1}</span>
+                            </div>
+                        </div>
+                        <div class="mb-8 text-slate-700 bg-blue-50/50 p-5 rounded-2xl border border-blue-100 border-dashed">
+                            <p class="italic text-slate-600 text-sm font-medium leading-relaxed">${instruction}</p>
+                        </div>
+                        <div class="space-y-3">
+                            ${data.map((num, index) => `
+                                <div class="flex items-center gap-4 p-2 rounded-xl border border-transparent">
+                                    <div class="text-lg font-black text-slate-200 w-6">${index + 1}</div>
+                                    <div class="flex-1 flex items-center justify-between gap-3">
+                                        <div class="w-36 h-14 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-300 text-[8px] uppercase font-black text-center px-2">Smaller</div>
+                                        <div class="flex flex-col items-center">
+                                            <div class="w-16 h-16 rounded-full border-4 border-blue-600 flex items-center justify-center bg-white">
+                                                <span class="text-2xl font-black text-slate-800">${num}</span>
+                                            </div>
+                                        </div>
+                                        <div class="w-36 h-14 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-300 text-[8px] uppercase font-black text-center px-2">Larger</div>
+                                    </div>
+                                    <div class="min-w-[50px] flex justify-center">${diceDisplay}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = allPagesHtml;
+        }
+
+        window.onload = generatePages;
+    </script>
+</body>
+</html>
